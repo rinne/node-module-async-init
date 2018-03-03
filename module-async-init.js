@@ -122,7 +122,7 @@ function createError(m, e) {
 }
 
 module.exports = function(moduleInitializerFunction, deferThrowError) {
-	var moduleInitWait, moduleAsyncInit, moduleRegisterInitialization, error;
+	var moduleInitWait, moduleAsyncInit, moduleRegisterInitialization, err;
 	try {
 		moduleAsyncInit = new MAS();
 		moduleInitWait = function() { return moduleAsyncInit.wait(); };
@@ -133,10 +133,13 @@ module.exports = function(moduleInitializerFunction, deferThrowError) {
 			return Promise.reject(new Error('Unable to setup async module initialization'));
 		};
 		moduleRegisterInitialization(Promise.reject(e));
-		error = e;
+		err = e;
 	}
-	if (error && (! deferThrowError)) {
-		throw error;
+	if (err) {
+		moduleAsyncInit.error = err;
+		if (! deferThrowError) {
+			throw err;
+		}
 	}
 	moduleAsyncInit.allRegistrationsDone = true;
 	return moduleInitWait;
