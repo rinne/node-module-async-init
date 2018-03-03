@@ -1,0 +1,34 @@
+{
+	"name": "module-async-init",
+	"version": "0.0.1",
+	"description": "Helper for creating asynchronous module initialization",
+	"main": "module-async-init.js",
+	"dependencies": {
+	},
+	"scripts": {
+		"test": "node ./test/module-async-init-test.js"
+	},
+	"engines": {
+		"node": ">=6.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/rinne/node-module-async-init.git"
+	},
+	"keywords": [
+		"modules",
+		"initialization",
+		"async",
+		"asynchronous"
+	],
+	"author": {
+		"name": "Timo J. Rinne",
+		"email": "tri@iki.fi",
+		"url": "https://github.com/rinne/"
+	},
+	"license": "GPL-2.0",
+	"bugs": {
+		"url": "https://github.com/rinne/node-module-async-init/issues"
+	},
+	"homepage": "https://github.com/rinne/node-module-async-init#readme"
+}
