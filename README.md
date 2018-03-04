@@ -67,7 +67,11 @@ function moduleInitialize(moduleRegisterInitialization) {
   // Register as many initialization promises as you like.
 }
 
-// The following should be more or like verbatim line all modules.
+// The following should be more or less verbatim line all modules.
+// However passing a truth-like value as additional argument along
+// with moduleInitialize, the possible error thrown during the
+// execution of moduleInitialize is caught and deferred until
+// something calls moduleInitWait.
 var moduleInitWait = ((require('module-async-init'))(moduleInitialize));
 ```
 
