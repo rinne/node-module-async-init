@@ -14,10 +14,14 @@ API typically with promises. Multiple issues are tackled:
 3) If a function exported by the module is called before the
    initializations are complete, it should wait until the
    initializations are competed and it can safely run.
-4) If the initializartion fails, all calls to any function exported by
+4) If the initialization fails, all calls to any function exported by
    the module should return a sensible error rather than something
    generic from the bottom of the call stack or, what is even worse,
    never return anything.
+5) Multiple independent initialization tasks in a single module can
+   take place in parellel.
+   other.
+6) Multiple modules can initialize themselves in parallel.
 
 All above is particularly useful in serverless environments such as
 AWS Lambda but can be used really anywhere.
@@ -198,6 +202,128 @@ module.exports = {
     moduleInitWait: moduleInitWait,
     myFunc1: myFunc1
 };
+```
+
+It's not too good idea to mix synchronous functions with asynchronous
+ones, let alone making the execution of a synchronous function depend
+from the asynchronous initialization of the module, but if absolutely
+necessarily, it's quite trivial to do. Something like this:
+
+```
+async function myFunc1() {
+    try {
+        await moduleInitWait();
+        // do something
+    } catch(e) {
+        // do something
+    };
+}
+
+function myFunc2() {
+    if (! moduleInitComplete) {
+        throw new Error('Module not initialized');
+    }
+    // Do something nice and synchronous
+    // and return something useful.
+}
+
+function moduleInitialize(moduleRegisterInitialization) {
+    // You probably want to initialize something here
+    // or maybe just reserve it for future use
+}
+var moduleInitWait = ((require('module-async-init'))(moduleInitialize));
+
+var moduleInitComplete = false;
+(async function() {
+    try {
+        await moduleInitWait();
+        console.log('Module initialization ok');
+        moduleInitComplete = true;
+    } catch (e) {
+        console.log('Module initialization failed');
+        console.log(e);
+        process.exit(1);
+    }
+})();
+
+module.exports = {
+    myFunc1: myFunc1,
+    myFunc2: myFunc2
+};
+```
+
+If you feel particularly lazy or have an existing module, you might
+want to use a magic wrapper to make all your exported functions
+initialization aware without actually editing them too much.
+
+```
+'use strict';
+
+// This is the original code without any initializations.
+
+function f1() { /* Something asynchronous probably returnining a promise */}
+function f2() { /* Something asynchronous probably returnining a promise */}
+function f3() { /* Something asynchronous probably returnining a promise */}
+
+module.exports = {
+    f1: f1,
+    f2: f2,
+    f3: f3
+};
+```
+
+becomes
+
+```
+'use strict';
+
+// This is the same code pimped so that initializations are completed
+// before exported functions can execute, but they can nevertheless be
+// called immediately.
+
+function f1() { /* Something asynchronous probably returnining a promise */}
+function f2() { /* Something asynchronous probably returnining a promise */}
+function f3() { /* Something synchronous returning a value immediately */}
+
+function moduleInitialize(moduleRegisterInitialization) {
+    // Use moduleRegisterInitialization to register an arbitrary
+    // number of pending initialization promises.
+}
+var moduleInitWait = ((require('module-async-init'))(moduleInitialize));
+
+function moduleInitWaitWrapper(func) {
+    return async function(...args) {
+        try {
+            await moduleInitWait();
+            return await func(...args);
+        } catch(e) {
+            throw e;
+        }
+    }
+}
+
+module.exports = {
+    f1: moduleInitWaitWrapper(f1),
+    f2: moduleInitWaitWrapper(f2),
+    f3: moduleInitWaitWrapper(f3) // Exported f3 becomes async too :(
+};
+```
+
+And for all of us using node.js 6.x e.g. in AWS Lambda, here is a
+non-async-await version of moduleInitWrapper.
+
+```
+function moduleInitWaitWrapper(func) {
+    return function(...args) {
+        return (moduleInitWait()
+                .then(function() {
+                    return func(...args);
+                })
+                .catch(function(e) {
+                    throw e;
+                }));
+    }
+}
 ```
 
 Author
