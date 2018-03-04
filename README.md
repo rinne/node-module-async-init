@@ -98,6 +98,103 @@ function myFunction(a, b, c) {
 If you really want to use callbacks in your API instead of promises,
 it is of course possible, but why would you?
 
+However after node.js 8.0 you might want to use async functions and
+awaits and it is very much possible. More extensive example below:
+
+```
+'use strict';
+
+async function delay(ms) {
+    await new Promise((resolve, reject) => { setTimeout(resolve, ms); });
+}
+
+async function initializeSomethingAsync(n) {
+    var s = Math.trunc((Math.random() * 240) + 10);
+    await delay(s);
+    console.log('[' + n + '] ' + 'initializing...');
+    await delay(s);
+    console.log('[' + n + '] ' + '...something...');
+    await delay(s);
+    console.log('[' + n + '] ' + '...very...');
+    await delay(s);
+    console.log('[' + n + '] ' + '...slowly...');
+    await delay(s);
+    console.log('[' + n + '] ' + '...and...');
+    await delay(s);
+    console.log('[' + n + '] ' + '...asynchronously');
+    await delay(s);
+    //throw new Error('Error thrown by async initializer');
+}
+
+function initializeSomethingSync(n) {    
+    console.log('[' + n + '] ' + 'initializing something synchronously');
+    //throw new Error('Error thrown by synchronous initializer');
+}
+
+// This function MUST NOT be asynchronous, but it can register an
+// arbitrary number of promises (i.e. immediate return values from
+// async functions) to be completed before the module is fully
+// initialized.
+function moduleInitialize(moduleRegisterInitialization) {
+    var n = 0;
+    moduleRegisterInitialization(initializeSomethingSync(++n));
+    moduleRegisterInitialization(initializeSomethingAsync(++n));
+    moduleRegisterInitialization(initializeSomethingSync(++n));
+    moduleRegisterInitialization(initializeSomethingAsync(++n));
+    moduleRegisterInitialization(initializeSomethingSync(++n));
+    moduleRegisterInitialization(initializeSomethingAsync(++n));
+    moduleRegisterInitialization(initializeSomethingSync(++n));
+    moduleRegisterInitialization(initializeSomethingAsync(++n));
+    moduleRegisterInitialization(initializeSomethingSync(++n));
+    moduleRegisterInitialization(initializeSomethingAsync(++n));
+    moduleRegisterInitialization(initializeSomethingSync(++n));
+    moduleRegisterInitialization(initializeSomethingAsync(++n));
+}
+
+// Setting the boolean argument to true causes errors thrown during
+// the execution of by moduleInitialize to be caught but deferred
+// until someone calls moduleInitWait. If it's omitted of false, then
+// the error is thrown immediately.
+var moduleInitWait = ((require('module-async-init'))(moduleInitialize, false));
+
+// This is just an example.
+(async function() {
+    try {
+        await moduleInitWait();
+        console.log('ALL INITIALIZATIONS SEEM TO BE DONE!');
+    } catch(e) {
+        console.log(e);
+        console.log(new Error('foo'));
+    }
+})();
+```
+
+In some cases, mainly for debugging, you might want to export from
+your module a function that just waits for the initializations to
+complete. This can be done simply by exporting moduleInitWait among
+the methods actually doing something module specific.
+
+```
+async function myFunc1() {
+    try {
+        await moduleInitWait();
+        // do something
+    } catch(e) {
+        // do something    
+    };
+}
+
+function moduleInitialize(moduleRegisterInitialization) {
+    // You probably want to initialize something here
+    // or maybe just reserve it for future use
+}
+var moduleInitWait = ((require('module-async-init'))(moduleInitialize));
+
+module.exports = {
+    moduleInitWait: moduleInitWait,
+    myFunc1: myFunc1
+};
+```
 
 Author
 ======

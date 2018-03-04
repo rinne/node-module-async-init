@@ -1,6 +1,6 @@
 {
 	"name": "module-async-init",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Helper for creating asynchronous module initialization",
 	"main": "module-async-init.js",
 	"dependencies": {
