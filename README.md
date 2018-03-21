@@ -22,6 +22,10 @@ API typically with promises. Multiple issues are tackled:
    take place in parellel.
    other.
 6) Multiple modules can initialize themselves in parallel.
+7) New initializations should be easy to add to existing code without
+   redesigning everything.
+8) No initialization calls should be needed by the code loading the
+   module. Simple require('module') should be enough.
 
 All above is particularly useful in serverless environments such as
 AWS Lambda but can be used really anywhere.
@@ -263,7 +267,7 @@ initialization aware without actually editing them too much.
 
 function f1() { /* Something asynchronous probably returnining a promise */}
 function f2() { /* Something asynchronous probably returnining a promise */}
-function f3() { /* Something asynchronous probably returnining a promise */}
+function f3() { /* Something synchronous returning a value immediately   */}
 
 module.exports = {
     f1: f1,
@@ -283,7 +287,7 @@ becomes
 
 function f1() { /* Something asynchronous probably returnining a promise */}
 function f2() { /* Something asynchronous probably returnining a promise */}
-function f3() { /* Something synchronous returning a value immediately */}
+function f3() { /* Something synchronous returning a value immediately   */}
 
 function moduleInitialize(moduleRegisterInitialization) {
     // Use moduleRegisterInitialization to register an arbitrary
@@ -325,6 +329,18 @@ function moduleInitWaitWrapper(func) {
     }
 }
 ```
+
+The library also provides some debug output for ongoing
+initializations. This is especially useful for situations where an
+initialization is left hanging e.g. because of some unhandled
+exception or some other bug. This is done by passing true as the third
+parameter of the module setup. Like this:
+
+```
+var moduleInitWait = ((require('module-async-init'))(moduleInitialize, undefined, true));
+```
+
+This causes some console output for all initializations.
 
 Author
 ======

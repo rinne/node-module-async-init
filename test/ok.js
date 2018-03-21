@@ -30,4 +30,4 @@ function moduleInitialize(moduleRegisterInitialization) {
 }
 
 // The following should be more or like verbatim line all modules.
-var moduleInitWait = ((require('../module-async-init.js'))(moduleInitialize));
+var moduleInitWait = ((require('../module-async-init.js'))(moduleInitialize, undefined, true));

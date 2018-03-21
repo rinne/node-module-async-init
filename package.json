@@ -1,9 +1,10 @@
 {
 	"name": "module-async-init",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Helper for creating asynchronous module initialization",
 	"main": "module-async-init.js",
 	"dependencies": {
+		"keeptime": "^1.4.0"
 	},
 	"scripts": {
 		"test": "node ./test/module-async-init-test.js"

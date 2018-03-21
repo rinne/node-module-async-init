@@ -1,6 +1,9 @@
 'use strict';
 
-var MAS = function() {
+const KeepTime = require('keeptime');
+
+var MAS = function(enableDebug) {
+	this.debug = enableDebug ? true : false;
 	this.initSet = new Set();
 	this.waitSet = new Set();
     this.allRegistrationsDone = false;
@@ -9,7 +12,7 @@ var MAS = function() {
 	this.error = undefined;
 };
 
-MAS.prototype.wait = function() {
+MAS.prototype.wait = function(caller) {
 	if (this.error) {
 		return Promise.reject(createError('Module initialization error', this.error));
 	}
@@ -17,20 +20,52 @@ MAS.prototype.wait = function() {
 		return Promise.resolve();
 	}
 	return new Promise(function(resolve, reject) {
-		this.waitSet.add({ resolve: resolve, reject: reject });
+		this.waitSet.add({ resolve: resolve, reject: reject, caller: caller });
 	}.bind(this));
 };
 
-MAS.prototype.registerInitialization = function(p) {
-	var wp;
+MAS.prototype.registerInitialization = function(p, caller) {
+	var wp, timeout, kt = new KeepTime();
 	if (this.allRegistrationsDone) {
 		throw new Error('Late initialization registration');
 	}
+	var periodic = function () {
+		if (timeout) {
+			timeout = undefined;
+			if (this.debug) {
+				console.log('Module initialization ' +
+							(caller ? ('from ' + caller + ' ') : '') +
+							'still in progress after ' +
+							kt.get().toFixed(6) +
+							' seconds.');
+			}
+		}
+		timeout = setTimeout(periodic, 500);
+	}.bind(this);
 	wp = (Promise.resolve()
 		  .then(function() {
+			  kt.start();
+			  if (this.debug) {
+				  console.log('Module initialization ' +
+							  (caller ? ('from ' + caller + ' ') : '') +
+							  'starts.');
+			  }
+			  periodic();
 			  return Promise.resolve(p);
-		  })
+		  }.bind(this))
 		  .then(function() {
+			  kt.stop();
+			  if (timeout) {
+				  clearTimeout(timeout);
+				  timeout = undefined;
+			  }
+			  if (this.debug) {
+				  console.log('Module initialization ' +
+							  (caller ? ('from ' + caller + ' ') : '') +
+							  'successfully completes in progress after ' +
+							  kt.get().toFixed(6) +
+							  ' seconds.');
+			  }
 			  this.initSet.delete(wp);
 			  this.initsCompletedOK++;
 			  if (this.error) {
@@ -47,6 +82,18 @@ MAS.prototype.registerInitialization = function(p) {
 			  }
 		  }.bind(this))
 		  .catch(function(e) {
+			  kt.stop();
+			  if (timeout) {
+				  clearTimeout(timeout);
+				  timeout = undefined;
+			  }
+			  if (this.debug) {
+				  console.log('Module initialization ' +
+							  (caller ? ('from ' + caller + ' ') : '') +
+							  'FAILS in progress after ' +
+							  kt.get().toFixed(6) +
+							  ' seconds.');
+			  }
 			  this.initSet.delete(wp);
 			  this.initsFailed++;
 			  if (this.error) {
@@ -121,18 +168,34 @@ function createError(m, e) {
 	return ee;
 }
 
-module.exports = function(moduleInitializerFunction, deferThrowError) {
+function getCaller() {
+	var m, l = (new Error('x').stack.split("\n"))[3];
+	if (typeof(l) === 'string') {
+		if (m = l.match(/^\s*at\s\s*(.*)$/)) {
+			l = m[1];
+		}
+	} else {
+		l = 'unknown';
+	}
+	return l;
+}
+
+module.exports = function(moduleInitializerFunction, deferThrowError, enableDebug) {
 	var moduleInitWait, moduleAsyncInit, moduleRegisterInitialization, err;
+	moduleAsyncInit = new MAS(enableDebug ? true : false);
+	moduleInitWait = function() {
+		return moduleAsyncInit.wait(getCaller());
+	}.bind(moduleAsyncInit);
+	moduleRegisterInitialization = function(p) {
+		return moduleAsyncInit.registerInitialization(p, getCaller());
+	}.bind(moduleAsyncInit);
 	try {
-		moduleAsyncInit = new MAS();
-		moduleInitWait = function() { return moduleAsyncInit.wait(); };
-		moduleRegisterInitialization = function(p) { return moduleAsyncInit.registerInitialization(p); };
 		moduleInitializerFunction(moduleRegisterInitialization);
 	} catch (e) {
 		moduleInitWait = function() {
 			return Promise.reject(new Error('Unable to setup async module initialization'));
 		};
-		moduleRegisterInitialization(Promise.reject(e));
+		moduleAsyncInit.registerInitialization(Promise.reject(e), undefined);
 		err = e;
 	}
 	if (err) {
