@@ -40,7 +40,7 @@ MAS.prototype.registerInitialization = function(p, caller) {
 							' seconds.');
 			}
 		}
-		timeout = setTimeout(periodic, 500);
+		timeout = setTimeout(periodic, 1000);
 	}.bind(this);
 	wp = (Promise.resolve()
 		  .then(function() {
